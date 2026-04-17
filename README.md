@@ -53,6 +53,18 @@ Workflow at a glance:
 
 See [deslop/SKILL.md](deslop/SKILL.md) for the full workflow and [deslop/AGENTS.md](deslop/AGENTS.md) for each agent's prompt.
 
+### [write-agents-md](write-agents-md/)
+
+Write and maintain `AGENTS.md` / `CLAUDE.md` files as an [Intent Layer](https://intent-systems.com/blog/intent-layer) — a hierarchy of small, dense context files at semantic boundaries that auto-load as architectural context for agents. Two workflows: `build` (initial capture, leaf-first with SME interview) and `sync` (re-summarize nodes affected by changes).
+
+```
+/write-agents-md build          # initial capture across the repo
+/write-agents-md build src/api  # scoped to a subtree
+/write-agents-md sync           # re-summarize nodes affected by recent changes
+```
+
+See [write-agents-md/SKILL.md](write-agents-md/SKILL.md) for the full workflow and the six-section intent-node schema.
+
 ## Contributing
 
 New skills welcome. Each skill lives in its own directory at the repo root:
