@@ -14,7 +14,7 @@ Append to every agent prompt:
 > Return findings as a JSON array. Each finding:
 > - `file` — path relative to repo root
 > - `lines` — start-end or single line number
-> - `category` — one of: dedup, types, unused, cycles, weak-types, defensive, legacy, slop
+> - `category` — one of: dedup, types, unused, weak-types, defensive, legacy, slop
 > - `severity` — high | med | low
 > - `issue` — one-line description
 > - `proposed_fix` — concise description of the change
@@ -69,17 +69,7 @@ Then **verify every finding** by grep across the full codebase — tools miss:
 
 High confidence only when: tool flagged AND grep confirms zero refs AND not a public surface. Everything else → needs review with the grep evidence attached.
 
-## Agent 4 — Circular dependencies
-
-Find circular import/dependency cycles involving files in `{scope}`. Run:
-- JS/TS: `madge --circular <path>` (and `--extensions ts,tsx,js,jsx`)
-- Python: `pycycle` or `pydeps --show-cycles`
-- Go: compiler catches these — but report any via `go list -deps`
-- Rust: `cargo modules generate tree`
-
-For each cycle: the cycle path (A → B → C → A), the nature (shared type? leaked upward dep? mutual recursion?), and the cleanest break — usually extracting a shared leaf (`types.ts`, interface file) that both sides depend on.
-
-## Agent 5 — Weak types
+## Agent 4 — Weak types
 
 Find weak-type usage in `{scope}` and propose strong replacements.
 
@@ -98,7 +88,7 @@ For **each** finding, research the correct type:
 
 Only propose a replacement with confidence ≥ 0.8. If the correct type isn't derivable from the code, report the location as "needs user input" with what you tried. **Never guess.**
 
-## Agent 6 — Defensive programming
+## Agent 5 — Defensive programming
 
 Find try/catch and equivalent error-swallowing patterns in `{scope}` that don't serve a real purpose.
 
@@ -120,7 +110,7 @@ Keep (do NOT flag):
 
 Propose: removal OR explicit error handling with no fallback (propagate up, or fail loudly).
 
-## Agent 7 — Legacy, deprecated, fallback code
+## Agent 6 — Legacy, deprecated, fallback code
 
 Find legacy and fallback code paths in `{scope}` no longer needed.
 
@@ -137,7 +127,7 @@ Look for:
 
 Aim: **one** canonical path per concept.
 
-## Agent 8 — AI slop, unhelpful comments, over-nesting, style drift
+## Agent 7 — AI slop, unhelpful comments, over-nesting, style drift
 
 Find and flag low-value content and AI-generation tells in `{scope}`.
 
