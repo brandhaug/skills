@@ -1,6 +1,6 @@
 # Agent prompts
 
-Each agent is launched with `subagent_type: "general-purpose"`. Inject into every prompt:
+Inject into every prompt:
 - `{scope}` — the resolved, post-exclude file list
 - `{excludes}` — glob patterns to skip if the agent walks the tree itself (node_modules, dist, generated files, lockfiles, snapshots)
 - `{tools}` — detected tools available in the repo

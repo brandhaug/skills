@@ -33,7 +33,7 @@ ln -s "$PWD/skills/deslop" ~/.claude/skills/deslop
 
 ### [deslop](deslop/)
 
-Comprehensive codebase quality sweep. Launches 8 specialized cleanup agents in parallel — deduplication, type consolidation, unused code removal, circular dependencies, weak types, defensive programming, legacy code, and AI slop / unhelpful comments / over-nesting.
+Comprehensive codebase quality sweep. Launches 7 specialized cleanup agents in parallel — deduplication, type consolidation, unused code removal, weak types, defensive programming, legacy code, and AI slop / unhelpful comments / over-nesting.
 
 Accepts an optional scope argument (PR number, branch name, or directory path). Runs on the full codebase if omitted.
 
@@ -47,7 +47,7 @@ Accepts an optional scope argument (PR number, branch name, or directory path). 
 Workflow at a glance:
 
 1. Resolves scope to a file list, computes excludes, size-checks
-2. Launches 8 analysis agents in parallel — no edits, no conflicts
+2. Launches 7 analysis agents in parallel — no edits, no conflicts
 3. Consolidates findings into `deslop-report.md`
 4. On approval, fans out apply-agents in git worktrees, merges in precedence order, runs build/typecheck/tests between each
 
@@ -64,6 +64,14 @@ Write and maintain `AGENTS.md` / `CLAUDE.md` files as an [Intent Layer](https://
 ```
 
 See [write-agents-md/SKILL.md](write-agents-md/SKILL.md) for the full workflow and the six-section intent-node schema.
+
+### [write-like-a-human](write-like-a-human/)
+
+Strips AI writing tropes from prose — negative parallelism ("It's not X, it's Y"), em-dash addiction, "delve"-family vocabulary, punchy fragments, false suspense, signposted conclusions, and ~30 other tells. Use it when writing or editing blog posts, docs, READMEs, announcements, or any text meant for humans.
+
+Works in two modes: applied while drafting new prose, or as a sweep over existing text. Sweeps category by category and rewrites each hit to state its point plainly, without flattening the author's voice.
+
+See [write-like-a-human/SKILL.md](write-like-a-human/SKILL.md) for the checklist (source: [tropes.fyi](https://tropes.fyi)).
 
 ## Contributing
 
