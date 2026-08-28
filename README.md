@@ -73,6 +73,14 @@ Works in two modes: applied while drafting new prose, or as a sweep over existin
 
 See [write-like-a-human/SKILL.md](write-like-a-human/SKILL.md) for the checklist (source: [tropes.fyi](https://tropes.fyi)).
 
+### [remove-tautological-tests](remove-tautological-tests/)
+
+Finds and removes tautological tests — change-detector tests that mirror the code under test and break on any refactor without catching defects. Covers checksum assertions, echo assertions, duplicate-algorithm tests, snapshots without an oracle, and mock-theater interaction tests. Each hit is rewritten against an observable contract or deleted. Source: Google's Testing on the Toilet, ["Change-Detector Tests Considered Harmful"](https://testing.googleblog.com/2015/01/change-detector-tests-considered-harmful.html).
+
+Works in two modes: applied while writing new tests, or as a sweep over an existing suite (file, directory, or PR diff).
+
+See [remove-tautological-tests/SKILL.md](remove-tautological-tests/SKILL.md) for the litmus test and the seven-pattern checklist.
+
 ## Contributing
 
 New skills welcome. Each skill lives in its own directory at the repo root:
