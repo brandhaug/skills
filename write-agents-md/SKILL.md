@@ -1,6 +1,6 @@
 ---
 name: write-agents-md
-description: Write and maintain AGENTS.md (or CLAUDE.md) files as an Intent Layer — a hierarchy of small, dense context files at semantic boundaries that auto-load as architectural context for agents. Use when the user wants to write, create, generate, scaffold, seed, sync, trim, or prune AGENTS.md / CLAUDE.md files, agent context files, intent nodes, intent layer, or architectural memory for agents; or mentions "AGENTS.md hierarchy", "intent layer", "intent nodes", "agent context", "T-shaped context", "dark room problem". Supports three workflows — `build` (initial capture, leaf-first with SME interview), `sync` (reconcile affected nodes after code changes — additions, modifications, AND removals), and `trim` (cut every node to budget; everything must earn its place).
+description: Write and maintain AGENTS.md (or CLAUDE.md) files as an Intent Layer — a hierarchy of small, dense context files at semantic boundaries that auto-load as architectural context for agents. Use when the user wants to write, create, generate, scaffold, seed, sync, trim, or prune AGENTS.md / CLAUDE.md files, agent context files, intent nodes, intent layer, or architectural memory for agents; or mentions "AGENTS.md hierarchy", "intent layer", "intent nodes", "agent context", "T-shaped context", "dark room problem". Two workflows — `build` (initial capture, leaf-first with SME interview) and `sync` (reconcile affected nodes after code changes — additions, modifications, AND removals). Both end by cutting every touched node to a hard word budget; everything must earn its place.
 ---
 
 # Write AGENTS.md
@@ -16,7 +16,6 @@ Reference: https://intent-systems.com/blog/intent-layer
 /write-agents-md build src/api  # scoped to a subtree
 /write-agents-md sync           # reconcile nodes affected by recent changes (add / modify / remove)
 /write-agents-md sync HEAD~5    # reconcile nodes affected since a ref
-/write-agents-md trim           # cut every node to budget without losing invariants
 ```
 
 ## The one test
@@ -25,7 +24,7 @@ Before a sentence stays in a node, it passes this test: **would an agent editing
 
 ## Word budgets
 
-Hard ceilings, checked with `wc -w` after the repo formatter runs. Iterate until every file is at or under budget; a node over budget is not finished.
+Hard ceilings, checked with `wc -w` after the repo formatter runs. Every workflow ends with the cut-to-budget phase below; a node over budget is a failed step, not a follow-up.
 
 | Node kind                                       | Budget  |
 | ----------------------------------------------- | ------- |
@@ -39,7 +38,7 @@ Budgets are per file, not per section. A node that needs more than its budget is
 
 ## Delete on sight
 
-These never earn their place. Remove them in `build`, `sync`, and `trim` alike:
+These never earn their place. Remove them while drafting and again in the cut-to-budget phase:
 
 1. **Rationale or history when an ADR exists.** Replace with `(ADR NNNN)`.
 2. **History about removed code.** "The old X was removed because…" describes nothing an agent can touch.
@@ -81,7 +80,7 @@ These never earn their place. Remove them in `build`, `sync`, and `trim` alike:
 
 6. **Downlinks, not inlines.** Parents link to children and to external docs.
 
-7. **Trim, then review.** Run the trim workflow over everything just written. Print a tree of nodes with word counts. Ask the user to spot-check the root and the two largest before committing.
+7. **Cut to budget** (phase below), then print a tree of nodes with word counts and ask the user to spot-check the root and the two largest before committing.
 
 ## Sync workflow
 
@@ -91,19 +90,19 @@ Sync is a three-way reconciliation: **current code ↔ existing node ↔ ideal n
 2. **Map files to nodes.** Each changed file belongs to its nearest ancestor node.
 3. **Audit existing content first.** Walk each affected node section by section and flag: stale references (verify every symbol and path with grep or ls, never from memory), drifted claims, dead anti-patterns, superseded guidance, hoist/sink violations, and everything on the delete-on-sight list.
 4. **Leaf-first re-draft.** Re-read the chunk, produce the revised node with additions, edits, and deletions. If content changes materially, re-audit the parent against the updated children.
-5. **Trim.** Every synced node ends at or under budget. A sync that only adds is a failed sync.
+5. **Cut to budget** (phase below). A sync that only adds is a failed sync.
 6. **Propose diffs.** Node-by-node with `+ added`, `~ modified`, `- removed`, one-line reason per removal ("symbol `foo` deleted in abc123", "rule no longer enforced, see `bar.ts:42`"). Do not auto-commit.
 
 When uncertain about a removal, leave `> TODO(intent): verify - <reason>` rather than keeping stale content silently or deleting load-bearing context.
 
-## Trim workflow
+## Cut-to-budget phase
 
-Use on its own when nodes have accreted, and as the last step of build and sync.
+The last phase of both workflows, never skipped and never deferred to "a later cleanup".
 
-1. **Measure.** `wc -w` every node, sorted. Start with the largest.
+1. **Measure.** `wc -w` every touched node, sorted. Start with the largest.
 2. **Calibrate on one.** Rewrite the single largest node yourself to budget. It becomes the exemplar every other pass reads first.
 3. **Fan out with a shared brief.** Write the delete-on-sight list, the keep list, the budgets, and the exemplar path into one brief file; give each worker the brief plus its files and their budgets. Workers verify every kept symbol with grep, run the formatter, and iterate until under budget.
-4. **Leaves before parents.** A parent is re-audited against its trimmed children so it does not keep facts the leaves now own, and leaves drop anything the parent states.
+4. **Leaves before parents.** A parent is re-audited against its cut children so it does not keep facts the leaves now own, and leaves drop anything the parent states.
 5. **Check the cuts.** For each worker's report, look for a deleted cross-file invariant and restore it. Expect about one per worker; a budget met by dropping a real landmine is a regression.
 6. **Verify.** All relative links resolve, no `TODO(intent)` was invented, `git status` shows only node files (plus any code comments you deliberately fixed).
 
