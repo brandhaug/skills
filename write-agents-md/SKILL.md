@@ -1,11 +1,11 @@
 ---
 name: write-agents-md
-description: Write and maintain AGENTS.md (or CLAUDE.md) files as an Intent Layer — a hierarchy of small, dense context files at semantic boundaries that auto-load as architectural context for agents. Use when the user wants to write, create, generate, scaffold, seed, sync, or prune AGENTS.md / CLAUDE.md files, agent context files, intent nodes, intent layer, or architectural memory for agents; or mentions "AGENTS.md hierarchy", "intent layer", "intent nodes", "agent context", "T-shaped context", "dark room problem". Supports two workflows — `build` (initial capture, leaf-first with SME interview) and `sync` (reconcile affected nodes after code changes — proposing additions, modifications, AND removals of stale content).
+description: Write and maintain AGENTS.md (or CLAUDE.md) files as an Intent Layer — a hierarchy of small, dense context files at semantic boundaries that auto-load as architectural context for agents. Use when the user wants to write, create, generate, scaffold, seed, sync, trim, or prune AGENTS.md / CLAUDE.md files, agent context files, intent nodes, intent layer, or architectural memory for agents; or mentions "AGENTS.md hierarchy", "intent layer", "intent nodes", "agent context", "T-shaped context", "dark room problem". Supports three workflows — `build` (initial capture, leaf-first with SME interview), `sync` (reconcile affected nodes after code changes — additions, modifications, AND removals), and `trim` (cut every node to budget; everything must earn its place).
 ---
 
 # Write AGENTS.md
 
-Write and maintain a hierarchy of **Intent Nodes** (`AGENTS.md` / `CLAUDE.md` files) at semantic boundaries. Agents inherit the full ancestor chain automatically — a T-shaped view with broad context at the top and specific detail where work happens.
+Write and maintain a hierarchy of **Intent Nodes** (`AGENTS.md` / `CLAUDE.md` files) at semantic boundaries. Agents inherit the full ancestor chain automatically, so every word in a node is paid for on every request that touches its subtree. A node is a tax on context. Every sentence has to earn its place.
 
 Reference: https://intent-systems.com/blog/intent-layer
 
@@ -16,95 +16,144 @@ Reference: https://intent-systems.com/blog/intent-layer
 /write-agents-md build src/api  # scoped to a subtree
 /write-agents-md sync           # reconcile nodes affected by recent changes (add / modify / remove)
 /write-agents-md sync HEAD~5    # reconcile nodes affected since a ref
+/write-agents-md trim           # cut every node to budget without losing invariants
 ```
+
+## The one test
+
+Before a sentence stays in a node, it passes this test: **would an agent editing a file in this subtree make a wrong change without it, and could it not find the fact by grepping for ten seconds?** If the answer to either half is no, delete the sentence. The code is the copy that cannot drift; the node holds only what the code does not say.
+
+## Word budgets
+
+Hard ceilings, checked with `wc -w` after the repo formatter runs. Iterate until every file is at or under budget; a node over budget is not finished.
+
+| Node kind                                       | Budget  |
+| ----------------------------------------------- | ------- |
+| Root                                            | 500     |
+| App / worker / deployable                       | 650     |
+| Package or bounded-context node that has leaves | 750     |
+| Package without leaves                          | 300–600 |
+| Leaf (one capability / module / feature)        | 300     |
+
+Budgets are per file, not per section. A node that needs more than its budget is describing two areas; split it, or move the excess into the code as a doc comment.
+
+## Delete on sight
+
+These never earn their place. Remove them in `build`, `sync`, and `trim` alike:
+
+1. **Rationale or history when an ADR exists.** Replace with `(ADR NNNN)`.
+2. **History about removed code.** "The old X was removed because…" describes nothing an agent can touch.
+3. **Anything greppable in ten seconds.** Export lists, method lists, table and column inventories, file-tree listings, test-file rosters, "already split" lists, constants and their values, plugin option values one line from the source.
+4. **Restated code or doc comments.** Point at the file instead.
+5. **Facts stated in an ancestor node** or in the root. Replace with a pointer.
+6. **README prose.** Tutorials, receiver-facing recipes, numbered walkthroughs of UI behavior, marketing.
+7. **Numbers that go stale.** Word counts, byte sizes, before/after figures, line counts.
+8. **Headings with one bullet.** Merge into a neighbour; drop any schema section that would be empty.
+9. **Reassurance.** "This is deliberate", "this is fine", unless naming the landmine it defuses.
+10. **Copied code** beyond a single identifier.
+
+## Keep
+
+- Cross-file invariants: "X must happen before Y", "both adapters must…", "this constant is declared twice and a test pins them equal".
+- Never/always rules whose violation compiles and passes tests.
+- Landmines: things that look dead but are not, load-bearing ordering, silent fallbacks, fail-closed defaults.
+- One pointer per external contract (ADR, sibling node, file) instead of prose about it.
+- Open follow-ups, as a single `> TODO(intent): …` line each.
 
 ## Pre-flight
 
-1. **Detect filename convention** — if repo already has `CLAUDE.md` files, use `CLAUDE.md`; if `AGENTS.md`, use that; otherwise default to `AGENTS.md`.
-2. **Detect tooling** — `package.json`, `tsconfig*.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, monorepo manifests (`pnpm-workspace.yaml`, `turbo.json`, `nx.json`). Workspace package roots are strong semantic-boundary candidates.
-3. **Confirm scope** — if scope would produce > 30 nodes, surface the plan and ask before proceeding.
+1. **Detect filename convention.** Existing `CLAUDE.md` files → `CLAUDE.md`; existing `AGENTS.md` → `AGENTS.md`; otherwise `AGENTS.md`.
+2. **Detect tooling.** `package.json`, `tsconfig*.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, monorepo manifests. Workspace package roots are strong boundary candidates. Note the repo's formatter so nodes go through it.
+3. **Confirm scope.** If scope would produce more than 30 nodes, surface the plan and ask before proceeding.
+4. **Never install anything.** No `bun install`, `npm install`, `pnpm install`. A subagent that runs an installer in a repo pinned to another package manager rewrites `package.json` and leaves a lockfile; after delegated work, check `git status` for exactly that and revert it.
 
 ## Build workflow
 
-1. **Chunk at semantic boundaries** — not every directory. Chunk when responsibility, patterns, or vocabulary shift. Target 20k–64k tokens per chunk. Strong candidates: workspace packages, domain modules, `src/api`, `src/db`, `src/ui/<feature>`, background jobs, migration dirs.
+1. **Chunk at semantic boundaries**, not every directory. Chunk when responsibility, patterns, or vocabulary shift. Target 20k–64k tokens of source per chunk.
 
-2. **Leaf-first capture** — start with well-understood subtrees before tangled ones. For each leaf chunk:
-   - Read the code in the chunk (entry points, exports, tests).
-   - Draft an Intent Node using the schema below.
-   - Track open questions in `.intent-layer-questions.md` at the repo root.
+2. **Leaf-first capture.** For each leaf chunk: read entry points, exports, tests; draft a node with the schema below; apply the delete-on-sight list before saving; check the budget. Track open questions in `.intent-layer-questions.md` at the repo root.
 
-3. **SME interview** — after drafting leaves, batch open questions and ask the user. Target: invariants, hidden contracts, anti-patterns, "never do X" rules, historical landmines. Do not invent these — they don't live in the code.
+3. **SME interview.** Batch open questions and ask the user. Target invariants, hidden contracts, "never do X" rules, historical landmines. Do not invent these.
 
-4. **Hierarchical summarize (bottom-up)** — at each parent directory with ≥2 child Intent Nodes, write a parent node that summarizes the **children's nodes**, not the raw code. This is fractal compression — a 2k-token parent may cover 200k tokens below.
+4. **Hierarchical summarize, bottom-up.** At each parent with two or more child nodes, write a parent that summarizes the **children's nodes**, not the raw code. The parent holds the map (a link per child), the facts true across several children, and nothing a single child owns.
 
-5. **Deduplicate at the Least Common Ancestor** — any fact true for multiple children lives in the shallowest node covering all of them. Remove duplicates from the children, leave a one-line reference if useful.
+5. **Deduplicate at the least common ancestor.** A fact true for several children lives in the shallowest node covering all of them and nowhere else.
 
-6. **Downlinks, not inlines** — parents link to children and to external docs (ADRs, architecture diagrams). Progressive disclosure: agents follow links only when needed.
+6. **Downlinks, not inlines.** Parents link to children and to external docs.
 
-7. **Review** — print a tree of created nodes with token counts. Ask the user to spot-check the 2–3 largest and the root before committing.
+7. **Trim, then review.** Run the trim workflow over everything just written. Print a tree of nodes with word counts. Ask the user to spot-check the root and the two largest before committing.
 
 ## Sync workflow
 
-Sync is a three-way reconciliation: **current code ↔ existing node ↔ ideal node**. Always propose all three kinds of edits — additions, modifications, **and removals**. Treat the existing node as a draft to revise, not a floor to add on top of. Stale context is worse than missing context: it actively misleads agents.
+Sync is a three-way reconciliation: **current code ↔ existing node ↔ ideal node**. Always propose all three kinds of edits: additions, modifications, and removals. Treat the existing node as a draft to revise, not a floor to build on. Stale context misleads agents; missing context merely slows them.
 
-1. **Diff scope** — `git diff --name-only <ref>...HEAD` (default ref: merge-base with default branch).
-2. **Map files to nodes** — each changed file belongs to the nearest ancestor Intent Node.
-3. **Audit existing content first** — before drafting new content, walk each affected node section by section and flag:
-   - **Stale references** — files, functions, modules, or symbols mentioned in the node that no longer exist or have been renamed.
-   - **Drifted claims** — invariants, contracts, or "always/never" rules that the current code no longer enforces.
-   - **Dead anti-patterns** — warnings about patterns or pitfalls that are no longer reachable (the offending code/path was removed).
-   - **Superseded guidance** — usage patterns replaced by a newer canonical approach.
-   - **Hoist/sink violations** — facts now duplicated across siblings (hoist to LCA) or that only apply to one child (sink down).
-   - **Bloat** — sections that have grown into prose, tutorials, or exhaustive API lists; compress back to dense intent.
-4. **Leaf-first re-draft** — for each affected leaf node, re-read the chunk and produce a revised node containing additions, edits to drifted content, **and deletions** of stale content. If content changes materially, propagate upward and re-audit the parent against its (now-updated) children.
-5. **Propose diffs** — show node-by-node diffs with three categories called out: `+ added`, `~ modified`, `- removed`. For each removal, state *why* in one line (e.g. "function `foo` deleted in commit abc123", "rule no longer enforced — see `bar.ts:42`"). Do **not** auto-commit — intent nodes are reviewed like code.
+1. **Diff scope.** `git diff --name-only <ref>...HEAD` (default ref: merge-base with the default branch). If the diff is empty because the branch is level with the default branch, fall back to the last five commits and say so.
+2. **Map files to nodes.** Each changed file belongs to its nearest ancestor node.
+3. **Audit existing content first.** Walk each affected node section by section and flag: stale references (verify every symbol and path with grep or ls, never from memory), drifted claims, dead anti-patterns, superseded guidance, hoist/sink violations, and everything on the delete-on-sight list.
+4. **Leaf-first re-draft.** Re-read the chunk, produce the revised node with additions, edits, and deletions. If content changes materially, re-audit the parent against the updated children.
+5. **Trim.** Every synced node ends at or under budget. A sync that only adds is a failed sync.
+6. **Propose diffs.** Node-by-node with `+ added`, `~ modified`, `- removed`, one-line reason per removal ("symbol `foo` deleted in abc123", "rule no longer enforced, see `bar.ts:42`"). Do not auto-commit.
 
-When uncertain about a removal, leave it as `> TODO(intent): verify — <reason>` rather than silently keeping stale content or deleting load-bearing context.
+When uncertain about a removal, leave `> TODO(intent): verify - <reason>` rather than keeping stale content silently or deleting load-bearing context.
+
+## Trim workflow
+
+Use on its own when nodes have accreted, and as the last step of build and sync.
+
+1. **Measure.** `wc -w` every node, sorted. Start with the largest.
+2. **Calibrate on one.** Rewrite the single largest node yourself to budget. It becomes the exemplar every other pass reads first.
+3. **Fan out with a shared brief.** Write the delete-on-sight list, the keep list, the budgets, and the exemplar path into one brief file; give each worker the brief plus its files and their budgets. Workers verify every kept symbol with grep, run the formatter, and iterate until under budget.
+4. **Leaves before parents.** A parent is re-audited against its trimmed children so it does not keep facts the leaves now own, and leaves drop anything the parent states.
+5. **Check the cuts.** For each worker's report, look for a deleted cross-file invariant and restore it. Expect about one per worker; a budget met by dropping a real landmine is a regression.
+6. **Verify.** All relative links resolve, no `TODO(intent)` was invented, `git status` shows only node files (plus any code comments you deliberately fixed).
 
 ## Intent Node schema
 
-Every node has six sections. Keep it small but dense — distill the area to minimum high-signal tokens. Aim for 300–2000 tokens per node.
+Six sections. Drop any section that would be empty rather than padding it.
 
 ```md
 # <Area Name>
 
 ## Purpose & Scope
-What this area owns. What it explicitly does NOT own.
+What this area owns, in two or three sentences. What it explicitly does not own.
 
 ## Entry Points & Contracts
-Public APIs, jobs, events. Invariants and enforcement points.
-(e.g. "All writes go through `repo.save()` — direct DB writes bypass audit log.")
+Where behavior enters and the invariants it enforces. Pointers, not inventories.
+("All writes go through `repo.save()`; direct DB writes bypass the audit log.")
 
 ## Usage Patterns
-Canonical examples for the 2–3 most common tasks here.
+The two or three most common tasks here, as numbered steps. No code beyond an identifier.
 
 ## Anti-patterns
-Negative examples. "Never call X directly from controllers." "Don't import Y from Z."
+Negative rules whose violation compiles. "Never call X from controllers."
 
 ## Dependencies & Edges
-Related areas (downlinks to child/sibling intent nodes) and external docs (ADRs, diagrams).
+Downlinks to child and sibling nodes, ADR numbers, one line each.
 
 ## Patterns & Pitfalls
-Repeatedly confusing aspects, historical landmines, non-obvious constraints.
+Landmines and non-obvious constraints. One fact per bullet.
 ```
 
 ## Guardrails
 
-- **Small but dense.** A node that looks like README prose is wrong. No marketing, no exhaustive API lists — link to generated docs for those.
-- **Never duplicate raw code.** Intent nodes describe *intent*, not implementation. If you're copying code, you're doing it wrong.
-- **Facts at the LCA.** Duplicated facts across siblings → hoist to the parent.
-- **Semantic boundaries, not directories.** A node at every directory is naive and will drift. Only place nodes where responsibility/vocabulary shifts.
-- **Capture invariants invisible in code.** The whole point is institutional knowledge — "never do X", "Y must happen before Z", "this looks dead but isn't".
-- **Review like code.** Propose diffs, never auto-commit. Intent nodes are versioned alongside implementation.
-- **Leaf-first, always.** Summarizing parents before leaves means parents summarize raw code instead of compressed children — fractal compression breaks.
-- **Open questions are first-class.** If the SME can't clarify now, leave the question in the node as `> TODO(intent): <question>` rather than inventing an answer.
-- **Prune as aggressively as you write.** Stale context misleads agents worse than missing context does. Every sync must consider what to remove or rewrite, not just what to add.
+- **Small and dense.** A node that reads like a README is wrong.
+- **Never duplicate code.** Nodes describe intent; the code describes implementation.
+- **Facts at the LCA.** Duplicated across siblings → hoist to the parent; true for one child → sink to it.
+- **Semantic boundaries, not directories.** Most directories are not boundaries.
+- **Capture what code cannot say.** "Never do X", "Y before Z", "this looks dead but isn't".
+- **Verify before you write.** Every path, symbol, and ADR number in a node is checked against the tree. Wrong ADR numbers and renamed symbols are the most common defects found in practice.
+- **Review like code.** Propose diffs; never auto-commit.
+- **Leaf-first, always.** Parents written first summarize raw code and break the compression.
+- **Open questions are first-class.** `> TODO(intent): <question>` beats an invented answer.
+- **Prune as hard as you write.** Budgets are ceilings, not targets.
 
-## Anti-patterns (of the skill itself)
+## Anti-patterns of the skill itself
 
-- Dumping a 15k-token monolithic root `AGENTS.md`. That's the naive approach the blog calls out explicitly.
-- One node per directory. Most directories aren't semantic boundaries.
-- Writing nodes for humans (tutorials, onboarding prose). Write for tokens — agents read this.
-- Copy-pasting function signatures. Use downlinks to generated docs.
-- Running sync on every save. Sync belongs at merge / post-commit, not mid-edit.
-- **Append-only sync.** Treating sync as "what's missing?" only — leaving stale references, drifted invariants, and dead anti-patterns in place. Sync is reconciliation, not accretion.
+- A 15k-token monolithic root.
+- One node per directory.
+- Nodes written for humans: onboarding prose, tutorials.
+- Function signatures, export tables, column lists, test rosters. Use downlinks.
+- Running sync on every save. Sync belongs at merge or post-commit.
+- **Append-only sync.** Leaving stale references and dead anti-patterns in place while adding new sections.
+- **Budget by amputation.** Meeting a budget by deleting the one cross-file invariant instead of the five greppable inventories around it.
+- **Delegating without a calibration example.** Workers given a rubric alone converge on different densities; workers given a rewritten exemplar converge on the right one.
